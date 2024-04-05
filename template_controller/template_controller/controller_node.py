@@ -31,7 +31,7 @@ from tf2_ros.transform_listener import TransformListener
 
 from template_controller.PID_controller import PID_controller
 from template_controller.PD_FF_controller import PD_FF_controller
-from template_controller.template_controller.backstepping_controller import backstepping_controller
+from template_controller.backstepping_controller import backstepping_controller
 
 class Controller(rclpy.node.Node):
     def __init__(self):

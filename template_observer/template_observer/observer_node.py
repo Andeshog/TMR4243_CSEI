@@ -25,9 +25,11 @@ import rclpy.node
 import numpy as np
 
 import std_msgs.msg
+from nav_msgs.msg import Odometry
 import tmr4243_interfaces.msg
 
-from template_observer.luenberg import luenberg
+import std_srvs.srv
+from template_observer.luenberg import Luenberg
 from template_observer.wrap import wrap
 
 
@@ -37,46 +39,74 @@ class Observer(rclpy.node.Node):
 
         self.L1 = self.declare_parameter('L1', [1.0] * 3)
         self.L2 = self.declare_parameter('L2', [1.0] * 3)
-        self.L3 = self.declare_parameter('L3', [1.0] * 3)
+        self.L3 = self.declare_parameter('L3', [0.1] * 3)
+
+        L1 = self.get_parameter('L1').get_parameter_value().double_array_value
+        L2 = self.get_parameter('L2').get_parameter_value().double_array_value
+        L3 = self.get_parameter('L3').get_parameter_value().double_array_value
 
         self.subs = {}
         self.pubs = {}
 
+
         self.subs["tau"] = self.create_subscription(
             std_msgs.msg.Float32MultiArray, '/CSEI/state/tau', self.tau_callback, 10
         )
+        
         self.subs["eta"] = self.create_subscription(
             std_msgs.msg.Float32MultiArray, '/CSEI/state/eta', self.eta_callback, 10
         )
+
+        self.subs["eta"] = self.create_subscription(
+            Odometry, '/CSEI/odom', self.odom_callback, 10
+        )
+
+        self.pubs['psi'] = self.create_publisher(
+            std_msgs.msg.Float32, '/CSEI/state/psi', 1
+        )
+
         self.pubs['observer'] = self.create_publisher(
             tmr4243_interfaces.msg.Observer, '/CSEI/observer/state', 1
         )
 
+        self.dead_reckon_srv = self.create_service(
+            std_srvs.srv.Empty, '/CSEI/observer/dead_reckoning', self.dead_reckoning_callback
+        )
+
+        self.dead_reckon = False
+
         self.last_transform = None
         self.last_joystick_msg = None
         self.last_eta_msg = None
+        self.last_odom_msg = None
         self.last_tau_msg = None
+
+        self.luenberg = Luenberg(L1, L2, L3)
 
         self.observer_runner = self.create_timer(0.1, self.observer_loop)
 
     def observer_loop(self):
-        self.L1 = self.get_parameter('L1')
-        self.L2 = self.get_parameter('L2')
-        self.L3 = self.get_parameter('L3')
+        if self.dead_reckon:
+
+            pass
+        else:
+
+            pass     
+
 
         if \
                 self.last_eta_msg is None or \
                 self.last_tau_msg is None:
             return
 
-        eta_hat, nu_hat, bias_hat = luenberg(
-            self.last_eta_msg.data,
-            self.last_tau_msg.data,
-            self.L1.value,
-            self.L2.value,
-            self.L3.value
+        eta_hat, nu_hat, bias_hat = self.luenberg.step(
+            self.last_eta_msg,
+            self.last_tau_msg.data
         )
-
+        psi_msg = std_msgs.msg.Float32()
+        #psi_msg.data = self.luenberg.get_psi()
+        self.pubs['psi'].publish(psi_msg)
+        
         obs = tmr4243_interfaces.msg.Observer()
         obs.eta = eta_hat
         obs.nu = nu_hat
@@ -88,6 +118,17 @@ class Observer(rclpy.node.Node):
 
     def eta_callback(self, msg: std_msgs.msg.Float32MultiArray):
         self.last_eta_msg = msg
+
+    def odom_callback(self, msg: Odometry):
+        self.last_odom_msg = msg
+
+    def dead_reckoning_callback(self, request, response):
+        # log the messga in ros2 log console
+        self.dead_reckon = not self.dead_reckon
+        self.get_logger().info(f"Dead Reckoning Service Called {self.dead_reckon}")
+
+        return response
+        
 
 
 def main():

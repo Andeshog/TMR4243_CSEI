@@ -2,6 +2,9 @@ import launch
 import launch.actions
 import launch.substitutions
 import launch_ros.actions
+from ament_index_python.packages import get_package_share_directory
+import os
+
 
 def generate_launch_description():
 
@@ -26,8 +29,18 @@ def generate_launch_description():
         executable='joy_node',
     )
 
+    teleop_param = os.path.join(
+        get_package_share_directory('template_joystick_control'),
+        'config', 'teleop.yaml'
+    )
+    teleop_node = launch_ros.actions.Node(
+            package='joy_teleop', executable='joy_teleop', name='observer_teleop_node',
+            parameters=[teleop_param])
+
+
     return launch.LaunchDescription([
         arg_task,
         node_joystick_control,
-        node_joy
+        node_joy,
+        teleop_node
     ])

@@ -10,7 +10,7 @@ def generate_launch_description():
         'task',
         default_value=launch.substitutions.TextSubstitution(text='stationkeeping'),
         description='Guidance task type. Choose between stationkeeping, straight_line.',
-        choices=['stationkeeping', 'straight_line']
+        choices=['stationkeeping', 'straight_line', 'hybridpath']
     )
 
     node_guidance = launch_ros.actions.Node(

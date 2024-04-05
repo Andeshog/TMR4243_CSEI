@@ -14,6 +14,7 @@ find_package(ament_cmake_python REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tmr4243_interfaces REQUIRED)
+find_package(nav_msgs REQUIRED)
 
 ament_python_install_package(${PROJECT_NAME})
 ament_cmake_symlink_install_directory(DIRECTORY ${PROJECT_SOURCE_DIR})

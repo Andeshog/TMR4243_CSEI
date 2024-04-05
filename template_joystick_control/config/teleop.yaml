@@ -1,0 +1,7 @@
+/observer_teleop_node:
+  ros__parameters:
+    dead_reckon_service:
+      type: service
+      interface_type: std_srvs/srv/Empty
+      service_name: /CSEI/observer/dead_reckoning
+      buttons: [2]

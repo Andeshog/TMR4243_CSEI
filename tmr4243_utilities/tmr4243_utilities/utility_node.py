@@ -33,6 +33,7 @@ import sensor_msgs.msg
 from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
+from transforms3d.euler import quat2euler
 
 
 class UtilityNode(rclpy.node.Node):
@@ -60,7 +61,6 @@ class UtilityNode(rclpy.node.Node):
         self.subs["allocated"] = self.create_subscription(
             geometry_msgs.msg.Wrench, '/CSEI/allocated', self.allocated_callback, 10)
 
-
         self.subs["joy"] = self.create_subscription(
             sensor_msgs.msg.Joy, '/joy', self.joy_callback, 10)
 
@@ -75,32 +75,37 @@ class UtilityNode(rclpy.node.Node):
         self.last_transform = None
         self.eta_publisher = self.create_timer(0.1, self.eta_publisher)
 
-        self.tau = [0, 0, 0]
-        self.tau_publisher = self.create_timer(0.1, self.tau_publisher)
+        # self.tau = np.zeros((3), dtype=float)
+        # self.tau_publisher = self.create_timer(0.1, self.tau_publisher)
 
     def eta_publisher(self):
 
         try:
             self.last_transform = self.tf_buffer.lookup_transform(
-                "base_link",
                 "world",
+                "base_link",
                 rclpy.time.Time())
             eta = [None] * 3
 
-            eta[0] = self.last_transform.transform.translation.x
+            eta[0] = self.last_transform.transform.translation.x #*(-1.0)
             eta[1] = self.last_transform.transform.translation.y
-
-            [roll, pitch, yaw] = self.quat2eul(
-                self.last_transform.transform.rotation.x,
-                self.last_transform.transform.rotation.y,
-                self.last_transform.transform.rotation.z,
-                self.last_transform.transform.rotation.w
-            )
-            eta[2] = yaw
+            rotation_list = [self.last_transform.transform.rotation.w,
+                                self.last_transform.transform.rotation.x,
+                                self.last_transform.transform.rotation.y,
+                                self.last_transform.transform.rotation.z]
+            roll, pitch, yaw = quat2euler(rotation_list)
+            # [roll, pitch, yaw] = self.quat2eul(
+            #     self.last_transform.transform.rotation.x,
+            #     self.last_transform.transform.rotation.y  ,
+            #     self.last_transform.transform.rotation.z,
+            #     self.last_transform.transform.rotation.w
+            # )
+            eta[2] = yaw #* (-1.0)
 
             msg = std_msgs.msg.Float32MultiArray()
             msg.data = eta
             self.pubs['eta'].publish(msg)
+
         except TransformException as ex:
             self.get_logger().info(f'Could not transform : {ex}')
 
@@ -154,7 +159,15 @@ class UtilityNode(rclpy.node.Node):
         return roll_x, pitch_y, yaw_z  # in radians
 
     def joy_callback(self, msg: sensor_msgs.msg.Joy):
-        pass
+        tau = [None] * 3
+
+        tau[0] = msg.axes[1]
+        tau[1] = msg.axes[0]
+        tau[2] = msg.axes[3]
+
+        msg = std_msgs.msg.Float32MultiArray()
+        msg.data = tau
+        self.pubs['tau'].publish(msg)
 
     def tau_publisher(self):
         msg = std_msgs.msg.Float32MultiArray()

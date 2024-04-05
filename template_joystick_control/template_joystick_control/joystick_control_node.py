@@ -98,7 +98,6 @@ class JoystickForce(rclpy.node.Node):
         u_cmd.data = result
         self.pubs["u_cmd"].publish(u_cmd)
 
-
 def main(args=None):
     # Initialize the node
     rclpy.init(args=args)
