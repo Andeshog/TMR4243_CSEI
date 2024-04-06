@@ -86,23 +86,26 @@ class Observer(rclpy.node.Node):
         self.observer_runner = self.create_timer(0.1, self.observer_loop)
 
     def observer_loop(self):
-        if self.dead_reckon:
-
-            pass
-        else:
-
-            pass     
-
-
         if \
                 self.last_eta_msg is None or \
                 self.last_tau_msg is None:
             return
-
-        eta_hat, nu_hat, bias_hat = self.luenberg.step(
-            self.last_eta_msg,
-            self.last_tau_msg.data
+        
+        if self.dead_reckon:
+            eta = self.luenberg.dead_reckoning()
+            eta_msg = std_msgs.msg.Float32MultiArray()
+            eta_msg.data = eta
+            eta_hat, nu_hat, bias_hat = self.luenberg.step(
+                eta_msg,
+                self.last_tau_msg.data
         )
+
+        else:   
+
+            eta_hat, nu_hat, bias_hat = self.luenberg.step(
+                self.last_eta_msg,
+                self.last_tau_msg.data
+            )
         psi_msg = std_msgs.msg.Float32()
         #psi_msg.data = self.luenberg.get_psi()
         self.pubs['psi'].publish(psi_msg)

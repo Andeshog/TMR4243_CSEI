@@ -83,7 +83,6 @@ class UtilityNode(rclpy.node.Node):
         try:
             self.last_transform = self.tf_buffer.lookup_transform(
                 "world",
-                "world",
                 "base_link",
                 rclpy.time.Time())
             eta = [None] * 3
