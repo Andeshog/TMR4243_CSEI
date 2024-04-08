@@ -6,7 +6,7 @@ from template_observer.wrap import wrap
 from nav_msgs.msg import Odometry
 from transforms3d.euler import quat2euler
 
-class Luenberg:
+class Observer:
     def __init__(self, L1, L2, L3):
 
         self.M = np.array([
@@ -21,8 +21,8 @@ class Luenberg:
                     ])
         
         self.L1 = 5*np.diag(L1)
-        self.L2 = 0.1*np.diag(L2) @ self.M
-        self.L3 = 0.01*np.diag(L3) @ self.M
+        self.L2 = 0.1*np.diag(L2) #@ self.M
+        self.L3 = 0.01*np.diag(L3) #@ self.M
 
         self.eta_hat =   np.array([0, 0, 0])
         self.nu_hat  =   np.array([0, 0, 0])

@@ -81,7 +81,7 @@ class Observer(rclpy.node.Node):
         self.last_odom_msg = None
         self.last_tau_msg = None
 
-        self.luenberg = Luenberg(L1, L2, L3)
+        self.observer = Observer(L1, L2, L3)
 
         self.observer_runner = self.create_timer(0.1, self.observer_loop)
 
@@ -92,17 +92,17 @@ class Observer(rclpy.node.Node):
             return
         
         if self.dead_reckon:
-            eta = self.luenberg.dead_reckoning()
+            eta = self.observer.dead_reckoning()
             eta_msg = std_msgs.msg.Float32MultiArray()
             eta_msg.data = eta
-            eta_hat, nu_hat, bias_hat = self.luenberg.step(
+            eta_hat, nu_hat, bias_hat = self.observer.step(
                 eta_msg,
                 self.last_tau_msg.data
         )
 
         else:   
 
-            eta_hat, nu_hat, bias_hat = self.luenberg.step(
+            eta_hat, nu_hat, bias_hat = self.observer.step(
                 self.last_eta_msg,
                 self.last_tau_msg.data
             )
