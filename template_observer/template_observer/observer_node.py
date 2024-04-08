@@ -29,7 +29,7 @@ from nav_msgs.msg import Odometry
 import tmr4243_interfaces.msg
 
 import std_srvs.srv
-from template_observer.luenberg import Luenberg
+from template_observer.luenberg import Observer
 from template_observer.wrap import wrap
 
 
