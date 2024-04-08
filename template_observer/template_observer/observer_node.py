@@ -33,7 +33,7 @@ from template_observer.luenberg import Observer
 from template_observer.wrap import wrap
 
 
-class Observer(rclpy.node.Node):
+class ObserverNode(rclpy.node.Node):
     def __init__(self):
         super().__init__('cse_observer')
 
@@ -137,7 +137,7 @@ class Observer(rclpy.node.Node):
 def main():
     rclpy.init()
 
-    node = Observer()
+    node = ObserverNode()
 
     rclpy.spin(node)
 
