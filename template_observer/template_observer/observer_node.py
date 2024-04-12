@@ -98,7 +98,7 @@ class ObserverNode(rclpy.node.Node):
             eta_hat, nu_hat, bias_hat = self.observer.step(
                 eta_msg,
                 self.last_tau_msg.data
-        )
+            )
 
         else:   
 

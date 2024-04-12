@@ -229,6 +229,13 @@ class HybridPathGenerator:
                 for k, (a, b) in enumerate(zip(a_derivatives, b_derivatives)):
                     self._append_derivatives(k, a, b)
 
+    @staticmethod
+    def update_s(path: Path, dt: float, u_desired: float, s: float, w: float) -> float:
+        signals = HybridPathSignals(path, s)
+        v_s = signals.get_vs(u_desired)
+        s_new = s + (v_s + w) * dt
+        return s_new
+
 class HybridPathSignals:
     """
     Given a path and the path parameter s, this class can get the position
@@ -381,4 +388,13 @@ class HybridPathSignals:
         p_dder = self.get_derivatives()[1]
         v_s_s = -u_desired * (np.dot(p_der, p_dder)) / (np.sqrt(p_der[0]**2 + p_der[1]**2)**3)
         return v_s_s
+    
+    def get_w(self, mu: float, eta: np.ndarray) -> float:
+        eta_d = np.array([self.get_position()[0], self.get_position()[1], self.get_heading()])
+        e = eta - eta_d
+        p_der = self.get_derivatives()[0]
+        psi_der = self.get_heading_derivative()
+        eta_d_s = np.array([p_der[0], p_der[1], psi_der])
+        w = (mu / np.linalg.norm(eta_d_s)) * np.dot(eta_d_s, e)
+        return w
 

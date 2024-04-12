@@ -21,8 +21,8 @@ class Observer:
                     ])
         
         self.L1 = 5*np.diag(L1)
-        self.L2 = 0.1*np.diag(L2) #@ self.M
-        self.L3 = 0.01*np.diag(L3) #@ self.M
+        self.L2 = 0.01*np.diag(L2) #@ self.M
+        self.L3 = 0.001*np.diag(L3) #@ self.M
 
         self.eta_hat =   np.array([0, 0, 0])
         self.nu_hat  =   np.array([0, 0, 0])
@@ -65,15 +65,19 @@ class Observer:
 
         psi_hat = self.eta_hat[2]
 
-        delta_x = surge_vel * np.cos(psi_hat) * self.delta_t - sway_vel * np.sin(psi_hat) * self.delta_t
-        delta_y = surge_vel * np.sin(psi_hat) * self.delta_t + sway_vel * np.cos(psi_hat) * self.delta_t
+        # delta_x = surge_vel * np.sin(psi_hat) * self.delta_t - sway_vel * np.cos(psi_hat) * self.delta_t
+        # delta_y = surge_vel * np.cos(psi_hat) * self.delta_t + sway_vel * np.sin(psi_hat) * self.delta_t
+        # delta_psi = yaw_rate * self.delta_t
+
+        delta_x = surge_vel * np.cos(psi_hat) * self.delta_t - sway_vel * np.sin(psi_hat + np.pi/2) * self.delta_t
+        delta_y = surge_vel * np.sin(psi_hat) * self.delta_t + sway_vel * np.cos(psi_hat + np.pi/2) * self.delta_t
         delta_psi = yaw_rate * self.delta_t
 
         eta[0] = self.eta_hat[0] + delta_x
         eta[1] = self.eta_hat[1] + delta_y
         eta[2] = self.eta_hat[2] + delta_psi
 
-        eta[2] = wrap(eta[2])
+        # eta[2] = wrap(eta[2])
 
         return eta.tolist()
     

@@ -25,6 +25,7 @@ import rclpy
 import rclpy.node
 import tmr4243_interfaces.msg
 import geometry_msgs.msg
+from geometry_msgs.msg import Point
 
 from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
@@ -33,7 +34,7 @@ from tf2_ros.transform_listener import TransformListener
 
 from template_guidance.straight_line import straight_line, update_law
 from template_guidance.stationkeeping import stationkeeping
-from template_guidance.path import path, HybridPathGenerator, HybridPathSignals, update_s
+from template_guidance.path import path, HybridPathGenerator, HybridPathSignals
 
 class Guidance(rclpy.node.Node):
     def __init__(self):
@@ -44,6 +45,9 @@ class Guidance(rclpy.node.Node):
 
         self.pubs = {}
         self.subs = {}
+
+        self.subs["eta"] = self.create_subscription(
+            geometry_msgs.msg.Pose, '/CSEI/state/eta', self.eta_callback, 1)
 
         self.pubs["reference"] = self.create_publisher(
             tmr4243_interfaces.msg.Reference, '/CSEI/control/reference', 1)
@@ -63,11 +67,13 @@ class Guidance(rclpy.node.Node):
         self.guidance_timer = self.create_timer(guidance_period, self.guidance_callback)
         # 4 corner test waypoints
         waypoints = np.array([[0,0],[30, 0], [30, 30], [0, 30], [0, 0]])
+        waypoints = [Point(x=point[0], y=point[1]) for point in waypoints]
         r = 1
-        lambda_val = 0.3
-        generator = HybridPathGenerator(waypoints, r, lambda_val)
-        self.path = generator.Path
-        self.u_desired = 2.5
+        lambda_val = 0.15
+        self.generator = HybridPathGenerator(waypoints, r, lambda_val)
+        self.path = self.generator.Path
+        self.u_desired = 0.5
+        self.mu = 0.03
         self.s = 0
 
     def timer_callback(self):
@@ -86,6 +92,8 @@ class Guidance(rclpy.node.Node):
 
         self.get_logger().info(f"Parameter task: {self.guidance.value}", throttle_duration_sec=1.0)
 
+    def eta_callback(self, msg):
+        self.eta = msg
 
     def guidance_callback(self):
 
@@ -117,28 +125,26 @@ class Guidance(rclpy.node.Node):
         
         elif "hybridpath" in self.current_guidance.value:
             dt = 0.1
-            self.s += update_s(self.path, dt, self.u_desired, self.s)
+            self.s = self.generator.update_s(self.path, dt, self.u_desired, self.s)
             signals = HybridPathSignals(self.path, self.s)
-            n = tmr4243_interfaces.msg.Reference()
-            pos = signals.pd
-            pos_der = signals.pd_der[0]
-            pos_dder = signals.pd_der[1]
-            psi, psi_der, psi_dder = signals.get_heading()
-            n.eta_d = np.array([pos[0], pos[1], psi]).tolist()
-            eta_d_msg = geometry_msgs.msg.Pose()
-            eta_d_msg.position.x = pos[0]
-            eta_d_msg.position.y = pos[1]
-            eta_d_msg.orientation.z = psi
-            self.eta_pub.publish(eta_d_msg)
 
+            n = tmr4243_interfaces.msg.Reference()
+            pos = signals.get_position()
+            pos_der = signals.get_derivatives()[0]
+            pos_dder = signals.get_derivatives()[1]
+
+            psi = signals.get_heading()
+            psi_der = signals.get_heading_derivative()
+            psi_dder = signals.get_heading_second_derivative()
+
+            n.eta_d = np.array([pos[0], pos[1], psi]).tolist()
             n.eta_ds = np.array([pos_der[0], pos_der[1], psi_der]).tolist()
             n.eta_ds2 = np.array([pos_dder[0], pos_dder[1], psi_dder]).tolist()
-            self.pubs["reference"].publish(n)
 
-            v = tmr4243_interfaces.msg.Reference()
-            v.w = 0.0
-            v.v_s, v.v_ss = signals.calc_vs(self.u_desired)
-            self.pubs["reference"].publish(v)
+            n.w = signals.get_w(self.mu, self.eta)
+            n.v_s = signals.get_vs(self.u_desired)
+            n.v_ss = signals.get_vs_derivative(self.u_desired)
+            self.pubs["reference"].publish(n)
 
 
 
