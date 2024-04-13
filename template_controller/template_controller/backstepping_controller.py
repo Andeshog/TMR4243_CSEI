@@ -4,9 +4,9 @@ import numpy as np
 from tmr4243_interfaces.msg import Reference, Observer
 
 class BacksteppingController:
-    def __init__(self, K1: np.ndarray, K2: np.ndarray) -> None:
-        self.K_1 = K1
-        self.K_2 = K2
+    def __init__(self):
+        self.K_1 = np.diag([3, 3, 2])
+        self.K_2 = np.diag([5, 5, 2])
         self.M = np.array([
                     [16, 0, 0],
                     [0, 24, 0.53],
@@ -17,6 +17,7 @@ class BacksteppingController:
                     [0, 1.3, 2.8],
                     [0, 0, 1.9]
                     ])
+        self.tau_max = [2, 2, 2]
 
     def control_law(self, observer: Observer, reference: Reference) -> np.ndarray:
         """
@@ -31,9 +32,10 @@ class BacksteppingController:
         """
 
         # Extract values from the state and reference
-        eta = observer[:3]
-        nu = observer[3:6]
-        bias = observer[6:9]
+        eta = np.array(observer.eta)
+        nu = np.array(observer.nu)
+        bias = np.array(observer.bias)
+        #bias = np.ones(3) * 0.01
         w = reference.w
         v_s = reference.v_s
         v_ss = reference.v_ss
@@ -62,11 +64,11 @@ class BacksteppingController:
         tau = -self.K_2 @ z2 + self.D @ nu + self.M @ sigma1 + self.M @ ds_alpha1 * (v_s + w) - bias
 
         # Add constraints to tau # This should be improved
-        # for i in range(len(tau)):
-        #     if tau[i] > self.tau_max[i]:
-        #         tau[i] = self.tau_max[i]
-        #     elif tau[i] < -self.tau_max[i]:
-        #         tau[i] = -self.tau_max[i]
+        for i in range(len(tau)):
+            if tau[i] > self.tau_max[i]:
+                tau[i] = self.tau_max[i]
+            elif tau[i] < -self.tau_max[i]:
+                tau[i] = -self.tau_max[i]
 
         return tau
 
@@ -87,5 +89,5 @@ class BacksteppingController:
     
     @staticmethod
     def ssa(angle: float) -> float:
-        angle = np.atan2(np.sin(angle), np.cos(angle))
+        angle = np.arctan2(np.sin(angle), np.cos(angle))
         return angle

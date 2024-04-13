@@ -24,7 +24,7 @@ import numpy as np
 import rclpy
 import rclpy.node
 import tmr4243_interfaces.msg
-import geometry_msgs.msg
+import std_msgs.msg
 from geometry_msgs.msg import Point
 
 from tf2_ros import TransformException
@@ -34,7 +34,8 @@ from tf2_ros.transform_listener import TransformListener
 
 from template_guidance.straight_line import straight_line, update_law
 from template_guidance.stationkeeping import stationkeeping
-from template_guidance.path import path, HybridPathGenerator, HybridPathSignals
+from template_guidance.path import HybridPathGenerator, HybridPathSignals
+from tmr4243_interfaces.srv import Waypoint
 
 class Guidance(rclpy.node.Node):
     def __init__(self):
@@ -46,54 +47,54 @@ class Guidance(rclpy.node.Node):
         self.pubs = {}
         self.subs = {}
 
+        self.waypoint_server = self.create_service(Waypoint, 'waypoint_list', self.waypoint_callback)
+
+        # ros2 service call waypoint_list tmr4243_interfaces/srv/Waypoint "waypoint: [{x: 0.0, y: 0.0, z: 0.0}, {x: 5.0, y: 5.0, z: 0.0}, {x: 10.0, y: 10.0, z: 0.0}, {x: 0.0, y: 10.0, z: 0.0}, {x: 0.0, y: 0.0, z: 0.0}]"
+        # ros2 service call waypoint_list tmr4243_interfaces/srv/Waypoint "waypoint: [{x: 0.0, y: 0.0, z: 0.0}, {x: 10.0, y: 0.0, z: 0.0}]"
+
+        # Flags for logging
+        self.waypoints_received = False
+        self.waiting_message_printed = False
+        self.last_waypoint_reached = False
+
         self.subs["eta"] = self.create_subscription(
-            geometry_msgs.msg.Pose, '/CSEI/state/eta', self.eta_callback, 1)
+            std_msgs.msg.Float32MultiArray, '/CSEI/state/eta', self.eta_callback, 1)
 
         self.pubs["reference"] = self.create_publisher(
             tmr4243_interfaces.msg.Reference, '/CSEI/control/reference', 1)
-
-        self.eta_pub = self.create_publisher(
-            geometry_msgs.msg.Pose, 'eta', 1)
         
-        self.current_guidance = self.declare_parameter('task', 'stationkeeping')
+        self.current_guidance = self.declare_parameter('task', 'hybridpath')
         # self.current_guidance = self.declare_parameter('guidance', 'straight_line')
         # self.current_guidance = self.declare_parameter('guidance', 'hybridpath')
 
         self.last_transform = None
-        timer_period = 0.1 # seconds
-        self.timer = self.create_timer(timer_period, self.timer_callback)
-
-        guidance_period = 0.1 # seconds
-        self.guidance_timer = self.create_timer(guidance_period, self.guidance_callback)
-        # 4 corner test waypoints
-        waypoints = np.array([[0,0],[30, 0], [30, 30], [0, 30], [0, 0]])
-        waypoints = [Point(x=point[0], y=point[1]) for point in waypoints]
-        r = 1
-        lambda_val = 0.15
-        self.generator = HybridPathGenerator(waypoints, r, lambda_val)
-        self.path = self.generator.Path
-        self.u_desired = 0.5
+        self.eta = None
+        
+        self.r = 1
+        self.lambda_val = 0.15
         self.mu = 0.03
-        self.s = 0
 
-    def timer_callback(self):
+        self.has_eta = False
 
-        try:
-            self.last_transform = self.tf_buffer.lookup_transform(
-                "base_link",
-                "world",
-                rclpy.time.Time())
-        except TransformException as ex:
-            self.get_logger().info(
-                f'Could not transform : {ex}')
-
-        self.guidance = self.get_parameter('task')
-
-
-        self.get_logger().info(f"Parameter task: {self.guidance.value}", throttle_duration_sec=1.0)
+        self.timer = self.create_timer(0.1, self.guidance_callback)
 
     def eta_callback(self, msg):
-        self.eta = msg
+        self.eta = msg.data
+        self.has_eta = True
+
+    def waypoint_callback(self, request, response):
+        self.get_logger().info('Received waypoints, generating path...')
+        self.u_desired = 0.25
+        self.waypoints = request.waypoint
+        self.generator = HybridPathGenerator(self.waypoints, self.r, self.lambda_val)
+        self.path = self.generator.path
+        self.waypoints_received = True
+        self.waiting_message_printed = False  # Reset this flag to handle multiple waypoint sets
+        self.s = 0
+        signals = HybridPathSignals(self.path, self.s)
+        self.w = signals.get_w(self.mu, self.eta)
+        response.success = True
+        return response
 
     def guidance_callback(self):
 
@@ -124,27 +125,41 @@ class Guidance(rclpy.node.Node):
             self.pubs["reference"].publish(v)
         
         elif "hybridpath" in self.current_guidance.value:
-            dt = 0.1
-            self.s = self.generator.update_s(self.path, dt, self.u_desired, self.s)
-            signals = HybridPathSignals(self.path, self.s)
+            if self.waypoints_received and self.has_eta:
+                dt = 0.1
+                self.s = self.generator.update_s(self.path, dt, self.u_desired, self.s, self.w)
+                signals = HybridPathSignals(self.path, self.s)
+                self.w = signals.get_w(self.mu, self.eta)
 
-            n = tmr4243_interfaces.msg.Reference()
-            pos = signals.get_position()
-            pos_der = signals.get_derivatives()[0]
-            pos_dder = signals.get_derivatives()[1]
+                n = tmr4243_interfaces.msg.Reference()
+                pos = signals.get_position()
+                pos_der = signals.get_derivatives()[0]
+                pos_dder = signals.get_derivatives()[1]
 
-            psi = signals.get_heading()
-            psi_der = signals.get_heading_derivative()
-            psi_dder = signals.get_heading_second_derivative()
+                psi = signals.get_heading()
+                psi_der = signals.get_heading_derivative()
+                psi_dder = signals.get_heading_second_derivative()
 
-            n.eta_d = np.array([pos[0], pos[1], psi]).tolist()
-            n.eta_ds = np.array([pos_der[0], pos_der[1], psi_der]).tolist()
-            n.eta_ds2 = np.array([pos_dder[0], pos_dder[1], psi_dder]).tolist()
+                n.eta_d = np.array([pos[0], pos[1], psi], dtype=float).tolist()
+                n.eta_ds = np.array([pos_der[0], pos_der[1], psi_der], dtype=float).tolist()
+                n.eta_ds2 = np.array([pos_dder[0], pos_dder[1], psi_dder], dtype=float).tolist()
 
-            n.w = signals.get_w(self.mu, self.eta)
-            n.v_s = signals.get_vs(self.u_desired)
-            n.v_ss = signals.get_vs_derivative(self.u_desired)
-            self.pubs["reference"].publish(n)
+                n.w = signals.get_w(self.mu, self.eta)
+                n.v_s = signals.get_vs(self.u_desired)
+                n.v_ss = signals.get_vs_derivative(self.u_desired)
+                self.pubs["reference"].publish(n)
+
+                if self.s >= self.path.NumSubpaths and self.last_waypoint_reached == False:
+                    # self.waypoints_received = False
+                    self.waiting_message_printed = False
+                    #self.u_desired = 0
+                    self.get_logger().info('Last waypoint reached')
+                    self.last_waypoint_reached = True
+
+            else:
+                if not self.waiting_message_printed:
+                    self.get_logger().info('Waiting for waypoints to be received')
+                    self.waiting_message_printed = True
 
 
 

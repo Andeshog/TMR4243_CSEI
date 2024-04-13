@@ -12,10 +12,13 @@ find_package(rosidl_default_generators  REQUIRED)
 
 
 FILE(GLOB MSG_FILES RELATIVE "${PROJECT_SOURCE_DIR}"
-    "${PROJECT_SOURCE_DIR}/msg/*.msg")
+    "${PROJECT_SOURCE_DIR}/msg/*.msg",
+    "${PROJECT_SOURCE_DIR}/srv/*.srv")
+
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   ${MSG_FILES}
+  DEPENDENCIES geometry_msgs 
 )
 
 ament_package()

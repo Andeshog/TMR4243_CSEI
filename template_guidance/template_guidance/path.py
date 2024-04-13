@@ -14,8 +14,8 @@ class LinSys:
         by (np.ndarray): The y-vector for each subpath.
     """
     A: np.ndarray = None
-    bx: np.ndarray = np.array([])
-    by: np.ndarray = np.array([])
+    bx: list[np.ndarray] = field(default_factory=list)
+    by: list[np.ndarray] = field(default_factory=list)
 
 @dataclass
 class Coeff:
@@ -216,8 +216,8 @@ class HybridPathGenerator:
             N = self.path.NumSubpaths
             for j in range(N):
                 ax, bx = self._calculate_subpath_coeffs(j)
-                self.path.LinSys.bx = np.append(self.path.LinSys.bx, ax)
-                self.path.LinSys.by = np.append(self.path.LinSys.by, bx)
+                self.path.LinSys.bx.append(ax)
+                self.path.LinSys.by.append(bx)
 
                 a_vec, b_vec = self.solve_linear_system(A, ax, bx)
                 self.path.coeff.a.append(a_vec)
@@ -317,10 +317,11 @@ class HybridPathSignals:
         """
         derivatives = []
         index = int(self.s) + 1
+        theta = self.s - (index - 1)
         for k in range(1, self.path.Order + 1):
             a_vec = self.path.coeff.a_der[k - 1][index - 1]
             b_vec = self.path.coeff.b_der[k - 1][index - 1]
-            derivatives.append(self._compute_derivatives(self.s, a_vec, b_vec))
+            derivatives.append(self._compute_derivatives(theta, a_vec, b_vec))
 
         return derivatives
     

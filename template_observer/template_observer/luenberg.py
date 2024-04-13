@@ -40,7 +40,7 @@ class Observer:
         self.psi = eta[2]
         psi_wrapped = wrap(self.psi)
         y_tilde = eta - self.eta_hat
-        R_trsp = self.rotation_matrix_inverse(psi_wrapped)
+        R_trsp = self.rotation_matrix_inverse(self.psi)
 
         eta_hat_dot = R_trsp @ self.nu_hat + self.L1 @ y_tilde
         nu_hat_dot = np.linalg.inv(self.M) @ (-self.D @ self.nu_hat + self.bias_hat + tau + self.L2 @ R_trsp @ y_tilde)

@@ -1,4 +1,4 @@
- #!/usr/bin/env python3
+#!/usr/bin/env python3
 #
 # This file is part of CyberShip Enterpries Suite.
 #
@@ -22,87 +22,44 @@
 
 import rclpy
 import rclpy.node
-import tmr4243_interfaces.msg
+import std_msgs.msg
 import geometry_msgs.msg
 import numpy as np
-import math
-
-from tf2_ros import TransformException
-from tf2_ros.buffer import Buffer
-from tf2_ros.transform_listener import TransformListener
-
-
-from template_thrust_allocation.thrust_allocation_matrix import thrust_configuration_matrix
 
 from template_thrust_allocation.thruster_allocation import thruster_allocation
 
 class ThrustAllocation(rclpy.node.Node):
     def __init__(self):
-        super().__init__("cse_thrust_allocation")
+        super().__init__("tmr4243_thrust_allocation_node")
 
-        self.tf_buffer = Buffer()
-        self.tf_listener = TransformListener(self.tf_buffer, self)
+        self.last_received_forces = None
 
         self.pubs = {}
         self.subs = {}
 
-        self.pubs["tunnel"] = self.create_publisher(
-            geometry_msgs.msg.Wrench, '/CSEI/thrusters/tunnel/command', 1)
-        self.pubs["port"] = self.create_publisher(
-            geometry_msgs.msg.Wrench, '/CSEI/thrusters/port/command', 1)
-        self.pubs["starboard"] = self.create_publisher(
-            geometry_msgs.msg.Wrench, '/CSEI/thrusters/starboard/command', 1)
+        self.subs["tau_cmd"] = self.create_subscription(
+            geometry_msgs.msg.Wrench, '/CSEI/control/tau_cmd', self.tau_cmd_callback, 1)
 
-        self.B = thrust_configuration_matrix()
+        self.pubs["u_cmd"] = self.create_publisher(
+            std_msgs.msg.Float32MultiArray, '/CSEI/control/u_cmd', 1)
 
-        self.last_transform = None
-        timer_period = 0.1 # seconds
-        self.timer = self.create_timer(timer_period, self.timer_callback)
-
-        thrust_allocation_period = 0.1 # seconds
-        self.thrust_allocation_timer = self.create_timer(thrust_allocation_period, self.thrust_allocation_callback)
-
+        self.timer = self.create_timer(0.1, self.timer_callback)
 
     def timer_callback(self):
 
-        try:
-            self.last_transform = self.tf_buffer.lookup_transform(
-                "base_link",
-                "world",
-                rclpy.time.Time())
-        except TransformException as ex:
-            self.get_logger().info(
-                f'Could not transform : {ex}')
+        if self.last_received_forces is not None:
+            tau = np.array([self.last_received_forces.force.x, self.last_received_forces.force.y, self.last_received_forces.torque.z])
+            u = thruster_allocation(tau)
 
-        self.current_controller = self.get_parameter('current_controller')
+            u_cmd_msg = std_msgs.msg.Float32MultiArray()
+            u_cmd_msg.data = u
+            self.pubs["u_cmd"].publish(u_cmd_msg)
+            #self.get_logger().info(f"Published u_cmd: {u}")
 
+            #self.last_recived_forces = None
 
-        self.get_logger().info(f"Parameter task: {self.current_controller.value}", throttle_duration_sec=1.0)
-
-
-    def thrust_allocation_callback(self, msg):
-
-        if self.last_recived_forces is not None:
-            u = thruster_allocation(self.recived_forces, self.B)
-
-            f = geometry_msgs.msg.Wrench()
-            f.force.x = u[0]
-            self.pubs['tunnel'].publish(f)
-
-            f = geometry_msgs.msg.Wrench()
-            f.force.x = u[1] * np.cos(u[3])
-            f.force.y = u[1] * np.sin(u[3])
-            self.pubs['port'].publish(f)
-
-            f = geometry_msgs.msg.Wrench()
-            f.force.x = u[2] * np.cos(u[4])
-            f.force.y = u[2] * np.sin(u[4])
-            self.pubs['starboard'].publish(f)
-
-            self.last_recived_forces = None
-
-    def recived_forces(self, msg):
-        self.last_recived_forces = msg
+    def tau_cmd_callback(self, msg):
+        self.last_received_forces = msg
 
 
 def main(args=None):
@@ -116,4 +73,3 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
-

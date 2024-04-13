@@ -57,13 +57,13 @@ class ObserverNode(rclpy.node.Node):
             std_msgs.msg.Float32MultiArray, '/CSEI/state/eta', self.eta_callback, 10
         )
 
-        self.subs["eta"] = self.create_subscription(
-            Odometry, '/CSEI/odom', self.odom_callback, 10
-        )
+        # self.subs["eta"] = self.create_subscription(
+        #     Odometry, '/CSEI/odom', self.odom_callback, 10
+        # )
 
-        self.pubs['psi'] = self.create_publisher(
-            std_msgs.msg.Float32, '/CSEI/state/psi', 1
-        )
+        # self.pubs['psi'] = self.create_publisher(
+        #     std_msgs.msg.Float32, '/CSEI/state/psi', 1
+        # )
 
         self.pubs['observer'] = self.create_publisher(
             tmr4243_interfaces.msg.Observer, '/CSEI/observer/state', 1
@@ -86,6 +86,7 @@ class ObserverNode(rclpy.node.Node):
         self.observer_runner = self.create_timer(0.1, self.observer_loop)
 
     def observer_loop(self):
+        #self.get_logger().info("Observer Loop")
         if \
                 self.last_eta_msg is None or \
                 self.last_tau_msg is None:
@@ -101,26 +102,29 @@ class ObserverNode(rclpy.node.Node):
             )
 
         else:   
-
+            #self.get_logger().info("Estimating")
             eta_hat, nu_hat, bias_hat = self.observer.step(
                 self.last_eta_msg,
                 self.last_tau_msg.data
             )
-        psi_msg = std_msgs.msg.Float32()
+        #psi_msg = std_msgs.msg.Float32()
         #psi_msg.data = self.luenberg.get_psi()
-        self.pubs['psi'].publish(psi_msg)
+        #self.pubs['psi'].publish(psi_msg)
         
         obs = tmr4243_interfaces.msg.Observer()
         obs.eta = eta_hat
         obs.nu = nu_hat
         obs.bias = bias_hat
         self.pubs['observer'].publish(obs)
+        #self.get_logger().info(f"Observer: {obs}")
 
     def tau_callback(self, msg: std_msgs.msg.Float32MultiArray):
         self.last_tau_msg = msg
+        #self.get_logger().info(f"Tau: {msg}")
 
     def eta_callback(self, msg: std_msgs.msg.Float32MultiArray):
         self.last_eta_msg = msg
+        #self.get_logger().info(f"Eta: {msg}")
 
     def odom_callback(self, msg: Odometry):
         self.last_odom_msg = msg

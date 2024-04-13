@@ -16,7 +16,7 @@ ament_python_install_package(${PROJECT_NAME})
 ament_cmake_symlink_install_directory(DIRECTORY ${PROJECT_SOURCE_DIR})
 
 install(
-  DIRECTORY launch
+  DIRECTORY launch config
   DESTINATION share/${PROJECT_NAME}
 )
 

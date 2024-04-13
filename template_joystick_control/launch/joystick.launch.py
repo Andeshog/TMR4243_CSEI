@@ -4,6 +4,7 @@ import launch.substitutions
 import launch_ros.actions
 from ament_index_python.packages import get_package_share_directory
 import os
+from tmr4243_utilities.utilities import anon
 
 
 def generate_launch_description():
@@ -18,17 +19,18 @@ def generate_launch_description():
     node_joystick_control = launch_ros.actions.Node(
         package='template_joystick_control',
         executable='joystick_control_node.py',
-        name='joystick_control',
+        name=f'{anon()}joystick_control',
         parameters=[
                 {'task': launch.substitutions.LaunchConfiguration('task')},
         ],
         output='screen'
     )
+
     node_joy = launch_ros.actions.Node(
         package='joy',
         executable='joy_node',
+        name=f"{anon()}joy_node",
     )
-
     teleop_param = os.path.join(
         get_package_share_directory('template_joystick_control'),
         'config', 'teleop.yaml'

@@ -31,7 +31,7 @@ from tf2_ros.transform_listener import TransformListener
 
 from template_controller.PID_controller import PID_controller
 from template_controller.PD_FF_controller import PD_FF_controller
-from template_controller.backstepping_controller import backstepping_controller
+from template_controller.backstepping_controller import BacksteppingController
 
 class Controller(rclpy.node.Node):
     def __init__(self):
@@ -44,13 +44,13 @@ class Controller(rclpy.node.Node):
         self.subs = {}
 
         self.subs["reference"] = self.create_subscription(
-            tmr4243_interfaces.Reference, '/CSEI/control/reference', self.received_reference, 10)
+            tmr4243_interfaces.msg.Reference, '/CSEI/control/reference', self.received_reference, 10)
 
         self.subs['observer'] = self.create_subscription(
-            tmr4243_interfaces.msg.Observer, '/CSEI/control/observer', self.received_observer ,10)
+            tmr4243_interfaces.msg.Observer, '/CSEI/observer/state', self.received_observer ,10)
 
-        self.pubs["generalized_forces"] = self.create_publisher(
-             geometry_msgs.msg.Wrench, '/CSEI/generalized_forces', 1)
+        self.pubs["tau_cmd"] = self.create_publisher(
+             geometry_msgs.msg.Wrench, '/CSEI/control/tau_cmd', 1)
 
         # Default starting value is set to 0
         self.P_gain = self.declare_parameter("P_gain",0)
@@ -59,38 +59,47 @@ class Controller(rclpy.node.Node):
         self.K1_gain = self.declare_parameter("K1_gain", 1)
         self.K2_gain = self.declare_parameter("K2_gain", 1)
 
+        self.backstep = BacksteppingController()
+
+        # Flags for logging
+        self.waypoints_received = False
+        self.waiting_message_printed = False
+
         #self.current_controller  = self.declare_parameter('current_controller', 'PID_controller')
-        self.current_controller  = self.declare_parameter('current_controller', 'PD_FF_controller')
+        self.current_controller  = self.declare_parameter('current_controller', 'backstepping_controller')
         self.current_controller.value
 
+        self.last_observer = None
         self.last_transform = None
-        timer_period = 0.1 # seconds
-        self.timer = self.create_timer(timer_period, self.timer_callback)
+        self.reference = None
+        # timer_period = 0.1 # seconds
+        # self.timer = self.create_timer(timer_period, self.timer_callback)
 
         controller_period = 0.1 # seconds
         self.controller_timer = self.create_timer(controller_period, self.controller_callback)
 
 
-    def timer_callback(self):
+    # def timer_callback(self):
 
-        try:
-            self.last_transform = self.tf_buffer.lookup_transform(
-                "base_link",
-                "world",
-                rclpy.time.Time())
-        except TransformException as ex:
-            self.get_logger().info(
-                f'Could not transform : {ex}')
+    #     try:
+    #         self.last_transform = self.tf_buffer.lookup_transform(
+    #             "base_link",
+    #             "world",
+    #             rclpy.time.Time())
+    #     except TransformException as ex:
+    #         self.get_logger().info(
+    #             f'Could not transform : {ex}')
 
-        self.current_controller = self.get_parameter('current_controller')
+    #     self.current_controller = self.get_parameter('current_controller')
 
 
-        self.get_logger().info(f"Parameter task: {self.current_controller.value}", throttle_duration_sec=1.0)
+    #     self.get_logger().info(f"Parameter task: {self.current_controller.value}", throttle_duration_sec=1.0)
 
 
     def controller_callback(self):
 
-        if self.last_observer is not None:
+        if self.last_observer is not None and self.reference is not None:
+            #self.get_logger().info("Going into controller callback")
 
             P_gain = self.get_parameter("P_gain").value
             I_gain = self.get_parameter("I_gain").value
@@ -98,16 +107,17 @@ class Controller(rclpy.node.Node):
             K1_gain = self.get_parameter("K1_gain").value
             K2_gain = self.get_parameter("K2_gain").value
 
-            tau = []
+            tau = self.backstep.control_law(self.last_observer, self.reference)
 
-            if "PD_FF_controller" in self.current_controller.value:
-                tau = PD_FF_controller(self.last_observer, self.reference, P_gain, D_gain)
+            # if "PD_FF_controller" in self.current_controller.value:
+            #     tau = PD_FF_controller(self.last_observer, self.reference, P_gain, D_gain)
 
-            elif "PID_controller" in self.current_controller.value:
-                tau = PID_controller(self.last_observer, self.reference, P_gain, I_gain, D_gain)
+            # elif "PID_controller" in self.current_controller.value:
+            #     tau = PID_controller(self.last_observer, self.reference, P_gain, I_gain, D_gain)
 
-            elif "backstepping_controller" in self.current_controller.value:
-                tau = backstepping_controller(self.last_observer, self.reference, K1_gain, K2_gain)
+            # elif "backstepping_controller" in self.current_controller.value:
+            #     tau = self.backstep.control_law(self.last_observer, self.reference)
+            #     self.get_logger().info(f"tau: {tau}", throttle_duration_sec=1.0)
 
             if len(tau) != 3:
                 self.get_logger().warn(f"tau has length of {len(tau)} but it should be 3", throttle_duration_sec=1.0)
@@ -115,24 +125,15 @@ class Controller(rclpy.node.Node):
             f = geometry_msgs.msg.Wrench()
             f.force.x = tau[0]
             f.force.y = tau[1]
-            f.force.z = 0
-            f.torque.x = 0
-            f.torque.y = 0
             f.torque.z = tau[2]
-            self.pubs["generalized_forces"].publish(f)
+            self.pubs["tau_cmd"].publish(f)
 
             self.last_observer = None
 
         else:
 
             f = geometry_msgs.msg.Wrench()
-            f.force.x = 0
-            f.force.y = 0
-            f.force.z = 0
-            f.torque.x = 0
-            f.torque.y = 0
-            f.torque.z = 0
-            self.pubs["generalized_forces"].publish(f)
+            self.pubs["tau_cmd"].publish(f)
 
 
 
