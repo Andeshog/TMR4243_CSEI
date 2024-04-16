@@ -9,9 +9,9 @@ class LinSys:
     A class to represent the linear system.
 
     Attributes:
-        A (np.ndarray): The coefficients matrix.
-        bx (np.ndarray): The x-vector for each subpath.
-        by (np.ndarray): The y-vector for each subpath.
+        A: The coefficients matrix.
+        bx: The x-vector for each subpath.
+        by: The y-vector for each subpath.
     """
     A: np.ndarray = None
     bx: list[np.ndarray] = field(default_factory=list)
@@ -23,10 +23,10 @@ class Coeff:
     A class to represent the coefficients.
 
     Attributes:
-        a (np.ndarray): The x-coefficients.
-        b (np.ndarray): The y-coefficients.
-        a_der (np.ndarray): The x-coefficients for derivatives.
-        b_der (np.ndarray): The y-coefficients for derivatives.
+        a: The x-coefficients.
+        b: The y-coefficients.
+        a_der: The x-coefficients for derivatives.
+        b_der: The y-coefficients for derivatives.
     """
     a: list[np.ndarray] = field(default_factory=list)
     b: list[np.ndarray] = field(default_factory=list)

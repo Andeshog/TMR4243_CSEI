@@ -116,7 +116,7 @@ class ObserverNode(rclpy.node.Node):
         obs.nu = nu_hat
         obs.bias = bias_hat
         self.pubs['observer'].publish(obs)
-        #self.get_logger().info(f"Observer: {obs}")
+        #self.get_logger().info(f"Bias: {obs.bias}")
 
     def tau_callback(self, msg: std_msgs.msg.Float32MultiArray):
         self.last_tau_msg = msg

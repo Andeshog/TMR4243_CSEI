@@ -72,22 +72,27 @@ class Guidance(rclpy.node.Node):
         
         self.r = 1
         self.lambda_val = 0.15
-        self.mu = 0.03
+        self.mu = 0.04
 
         self.has_eta = False
 
         self.timer = self.create_timer(0.1, self.guidance_callback)
 
     def eta_callback(self, msg):
-        self.eta = msg.data
+        self.eta = list(msg.data)
         self.has_eta = True
 
     def waypoint_callback(self, request, response):
         self.get_logger().info('Received waypoints, generating path...')
+        self.generator = None
+        self.path = None
         self.u_desired = 0.25
-        self.waypoints = request.waypoint
-        self.generator = HybridPathGenerator(self.waypoints, self.r, self.lambda_val)
+        waypoints = request.waypoint
+        self.get_logger().info(f'Waypoints: {waypoints}')
+        self.generator = HybridPathGenerator(waypoints, self.r, self.lambda_val)
+        self.get_logger().info(f'Path generating: {self.generator.WP}')
         self.path = self.generator.path
+        self.get_logger().info(f'Path generated: {self.path}')
         self.waypoints_received = True
         self.waiting_message_printed = False  # Reset this flag to handle multiple waypoint sets
         self.s = 0
@@ -136,9 +141,9 @@ class Guidance(rclpy.node.Node):
                 pos_der = signals.get_derivatives()[0]
                 pos_dder = signals.get_derivatives()[1]
 
-                psi = signals.get_heading()
-                psi_der = signals.get_heading_derivative()
-                psi_dder = signals.get_heading_second_derivative()
+                psi = 0#signals.get_heading()
+                psi_der = 0#signals.get_heading_derivative()
+                psi_dder = 0#signals.get_heading_second_derivative()
 
                 n.eta_d = np.array([pos[0], pos[1], psi], dtype=float).tolist()
                 n.eta_ds = np.array([pos_der[0], pos_der[1], psi_der], dtype=float).tolist()
@@ -152,7 +157,7 @@ class Guidance(rclpy.node.Node):
                 if self.s >= self.path.NumSubpaths and self.last_waypoint_reached == False:
                     # self.waypoints_received = False
                     self.waiting_message_printed = False
-                    #self.u_desired = 0
+                    self.u_desired = 0
                     self.get_logger().info('Last waypoint reached')
                     self.last_waypoint_reached = True
 

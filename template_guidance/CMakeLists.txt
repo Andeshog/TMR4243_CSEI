@@ -11,6 +11,7 @@ find_package(rclpy REQUIRED)
 find_package(ament_cmake_python REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
+find_package(tmr4243_interfaces REQUIRED)
 
 ament_python_install_package(${PROJECT_NAME})
 ament_cmake_symlink_install_directory(DIRECTORY ${PROJECT_SOURCE_DIR})
@@ -23,6 +24,7 @@ install(
 install(
   PROGRAMS
     ${PROJECT_NAME}/guidance_node.py
+    ${PROJECT_NAME}/waypoint_node.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
