@@ -33,9 +33,10 @@ from tf2_ros.transform_listener import TransformListener
 
 
 from template_guidance.straight_line import straight_line, update_law
-from template_guidance.stationkeeping import stationkeeping
+from template_guidance.stationkeeping import ReferenceFilter
 from template_guidance.path import HybridPathGenerator, HybridPathSignals
 from tmr4243_interfaces.srv import Waypoint
+from tmr4243_interfaces.msg import Reference
 
 class Guidance(rclpy.node.Node):
     def __init__(self):
@@ -61,7 +62,10 @@ class Guidance(rclpy.node.Node):
             std_msgs.msg.Float32MultiArray, '/CSEI/state/eta', self.eta_callback, 1)
 
         self.pubs["reference"] = self.create_publisher(
-            tmr4243_interfaces.msg.Reference, '/CSEI/control/reference', 1)
+            Reference, '/CSEI/control/reference', 1)
+        
+        self.pubs["DPref"] = self.create_publisher(
+            Reference, '/CSEI/control/DPref', 1)
         
         self.current_guidance = self.declare_parameter('task', 'hybridpath')
         # self.current_guidance = self.declare_parameter('guidance', 'straight_line')
@@ -71,12 +75,15 @@ class Guidance(rclpy.node.Node):
         self.eta = None
         
         self.r = 1
-        self.lambda_val = 0.15
-        self.mu = 0.04
+        self.lambda_val = 0.2
+        self.mu = 0.03
 
         self.has_eta = False
 
         self.timer = self.create_timer(0.1, self.guidance_callback)
+
+        self.reference_filter = ReferenceFilter()
+        self.xd = np.zeros(9)
 
     def eta_callback(self, msg):
         self.eta = list(msg.data)
@@ -87,12 +94,11 @@ class Guidance(rclpy.node.Node):
         self.generator = None
         self.path = None
         self.u_desired = 0.25
-        waypoints = request.waypoint
-        self.get_logger().info(f'Waypoints: {waypoints}')
-        self.generator = HybridPathGenerator(waypoints, self.r, self.lambda_val)
-        self.get_logger().info(f'Path generating: {self.generator.WP}')
+        self.waypoints = request.waypoint
+        # self.get_logger().info(f'Waypoints: {self.waypoints}')
+        self.generator = HybridPathGenerator(self.waypoints, self.r, self.lambda_val)
+        # self.get_logger().info(f'Path generating: {self.generator.WP}')
         self.path = self.generator.path
-        self.get_logger().info(f'Path generated: {self.path}')
         self.waypoints_received = True
         self.waiting_message_printed = False  # Reset this flag to handle multiple waypoint sets
         self.s = 0
@@ -105,14 +111,32 @@ class Guidance(rclpy.node.Node):
 
         self.current_guidance = self.get_parameter('task')
 
-        if "stationkeeping" in self.current_guidance.value:
-            eta_d, eta_ds, eta_ds2 = stationkeeping()
+        if self.last_waypoint_reached and self.has_eta:
+            last_waypoint = self.waypoints[-1]
+            eta_ref = np.array([last_waypoint.x, last_waypoint.y, 0])
+            x_next = self.reference_filter.step(eta_ref, self.xd)
+            self.xd = x_next
+            ref_msg = Reference()
+            ref_msg.eta_d = x_next[0:3].tolist()
+            ref_msg.eta_ds = x_next[3:6].tolist()
+            self.pubs["DPref"].publish(ref_msg)
 
-            n = tmr4243_interfaces.msg.Reference()
-            n.eta_d = eta_d
-            n.eta_ds = eta_ds
-            n.eta_ds2 = eta_ds2
-            self.pubs["reference"].publish(n)
+        elif "stationkeeping" in self.current_guidance.value:
+            # self.get_logger().info('Stationkeeping')
+            if self.waypoints_received and self.has_eta:
+                last_waypoint = self.waypoints[-1]
+                eta_ref = np.array([last_waypoint.x, last_waypoint.y, 0])
+                x_next = self.reference_filter.step(eta_ref, self.xd)
+                self.xd = x_next
+                ref_msg = Reference()
+                ref_msg.eta_d = x_next[0:3].tolist()
+                ref_msg.eta_ds = x_next[3:6].tolist()
+                self.pubs["DPref"].publish(ref_msg)
+
+            else:
+                if not self.waiting_message_printed:
+                    self.get_logger().info('Waiting for waypoints to be received')
+                    self.waiting_message_printed = True
 
         elif "straight_line" in self.current_guidance.value:
             eta_d, eta_ds, eta_ds2 = straight_line()
@@ -130,7 +154,7 @@ class Guidance(rclpy.node.Node):
             self.pubs["reference"].publish(v)
         
         elif "hybridpath" in self.current_guidance.value:
-            if self.waypoints_received and self.has_eta:
+            if self.waypoints_received and self.has_eta and not self.last_waypoint_reached:
                 dt = 0.1
                 self.s = self.generator.update_s(self.path, dt, self.u_desired, self.s, self.w)
                 signals = HybridPathSignals(self.path, self.s)
@@ -142,7 +166,7 @@ class Guidance(rclpy.node.Node):
                 pos_dder = signals.get_derivatives()[1]
 
                 psi = 0#signals.get_heading()
-                psi_der = 0#signals.get_heading_derivative()
+                psi_der = 0#3signals.get_heading_derivative()
                 psi_dder = 0#signals.get_heading_second_derivative()
 
                 n.eta_d = np.array([pos[0], pos[1], psi], dtype=float).tolist()
@@ -154,12 +178,13 @@ class Guidance(rclpy.node.Node):
                 n.v_ss = signals.get_vs_derivative(self.u_desired)
                 self.pubs["reference"].publish(n)
 
-                if self.s >= self.path.NumSubpaths and self.last_waypoint_reached == False:
+                if self.s >= self.path.NumSubpaths-0.6 and self.last_waypoint_reached == False:
                     # self.waypoints_received = False
                     self.waiting_message_printed = False
-                    self.u_desired = 0
-                    self.get_logger().info('Last waypoint reached')
+                    self.get_logger().info('Closing in on the last waypoint, switching to DP')
                     self.last_waypoint_reached = True
+                    self.xd[0:3] = n.eta_d
+                    self.xd[3:6] = np.array([0.15, 0.15, 0])
 
             else:
                 if not self.waiting_message_printed:

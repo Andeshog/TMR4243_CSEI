@@ -11,6 +11,7 @@
 
   <depend>rclpy</depend>
   <depend>geometry_msgs</depend>
+  <depend>tmr4243_interfaces</depend>
   <depend>tf2_ros</depend>
   <buildtool_depend>ament_cmake_python</buildtool_depend>
 

@@ -21,8 +21,8 @@ class Observer:
                     ])
         
         self.L1 = 5*np.diag(L1)
-        self.L2 = 0.01*np.diag(L2) #@ self.M
-        self.L3 = 0.001*np.diag(L3) #@ self.M
+        self.L2 = 0.1*np.diag(L2) @ self.M
+        self.L3 = 0.01*np.diag(L3) @ self.M
 
         self.eta_hat =   np.array([0, 0, 0])
         self.nu_hat  =   np.array([0, 0, 0])
@@ -38,7 +38,6 @@ class Observer:
 
         Tb = np.diag([142, 142, 142])
         self.psi = eta[2]
-        psi_wrapped = wrap(self.psi)
         y_tilde = eta - self.eta_hat
         R_trsp = self.rotation_matrix_inverse(self.psi)
 
@@ -46,40 +45,32 @@ class Observer:
         nu_hat_dot = np.linalg.inv(self.M) @ (-self.D @ self.nu_hat + self.bias_hat + tau + self.L2 @ R_trsp @ y_tilde)
         bias_hat_dot = -np.linalg.inv(Tb) @ self.bias_hat + self.L3 @ R_trsp @ y_tilde
 
-        # eta_hat_dot = np.matmul(R_trsp, self.nu_hat) + np.matmul(self.L1, y_tilde)
-        # nu_hat_dot = np.matmul(np.linalg.inv(self.M), (-np.matmul(self.D, self.nu_hat) + self.bias_hat + tau + np.matmul(self.L2, np.matmul(R_trsp, y_tilde))))
-        # bias_hat_dot = -np.matmul(np.linalg.inv(Tb), self.bias_hat) + np.matmul(self.L3, np.matmul(R_trsp, y_tilde))
-
         self.eta_hat = self.eta_hat + eta_hat_dot * self.delta_t
         self.nu_hat = self.nu_hat + nu_hat_dot * self.delta_t
         self.bias_hat = self.bias_hat + bias_hat_dot * self.delta_t
 
         return self.eta_hat.tolist(), self.nu_hat.tolist(), self.bias_hat.tolist()
     
-    def dead_reckoning(self):
-        eta = np.zeros(3)
+    def dead_reckoning(self, eta: Float32MultiArray, tau):
+        L1 = np.diag([0, 0, 0])
+        L2 = np.diag([0, 0, 0])
+        L3 = np.diag([0, 0, 0])
+        eta = np.array(eta.data)
 
-        surge_vel = self.nu_hat[0]
-        sway_vel = self.nu_hat[1]
-        yaw_rate = self.nu_hat[2]
+        Tb = np.diag([142, 142, 142])
+        self.psi = eta[2]
+        y_tilde = eta - self.eta_hat
+        R_trsp = self.rotation_matrix_inverse(self.psi)
 
-        psi_hat = self.eta_hat[2]
+        eta_hat_dot = R_trsp @ self.nu_hat + L1 @ y_tilde
+        nu_hat_dot = np.linalg.inv(self.M) @ (-self.D @ self.nu_hat + self.bias_hat + tau + L2 @ R_trsp @ y_tilde)
+        bias_hat_dot = -np.linalg.inv(Tb) @ self.bias_hat + L3 @ R_trsp @ y_tilde
 
-        # delta_x = surge_vel * np.sin(psi_hat) * self.delta_t - sway_vel * np.cos(psi_hat) * self.delta_t
-        # delta_y = surge_vel * np.cos(psi_hat) * self.delta_t + sway_vel * np.sin(psi_hat) * self.delta_t
-        # delta_psi = yaw_rate * self.delta_t
+        self.eta_hat = self.eta_hat + eta_hat_dot * self.delta_t
+        self.nu_hat = self.nu_hat + nu_hat_dot * self.delta_t
+        self.bias_hat = self.bias_hat + bias_hat_dot * self.delta_t
 
-        delta_x = surge_vel * np.cos(psi_hat) * self.delta_t - sway_vel * np.sin(psi_hat + np.pi/2) * self.delta_t
-        delta_y = surge_vel * np.sin(psi_hat) * self.delta_t + sway_vel * np.cos(psi_hat + np.pi/2) * self.delta_t
-        delta_psi = yaw_rate * self.delta_t
-
-        eta[0] = self.eta_hat[0] + delta_x
-        eta[1] = self.eta_hat[1] + delta_y
-        eta[2] = self.eta_hat[2] + delta_psi
-
-        # eta[2] = wrap(eta[2])
-
-        return eta.tolist()
+        return self.eta_hat.tolist(), self.nu_hat.tolist(), self.bias_hat.tolist()
     
     def get_psi(self):
         return self.psi

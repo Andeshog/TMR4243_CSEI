@@ -1,25 +1,44 @@
 #!/usr/bin/env python3
 
-def PID_controller(observer, reference, P_gain, I_gain, D_gain):
-    
-    # Getting the states from the observer
-    eta_hat = observer.eta
-    nu_hat = observer.nu
-    bias_hat = observer.bias
+import numpy as np
 
-    # Getting the states from the refernce
-    eta_d = reference.eta_d
-    eta_ds = reference.eta_ds
-    eta_ds2 = reference.eta_ds2
-    w = reference.w
-    v_s = reference.v_s
-    v_ss = reference.v_ss
+class PID:
+    def __init__(self):
+        self.error_sum = np.zeros(3)
 
-    # Replace the following line
-    tau = [0, 0, 0]
+        self.tau_max = np.array([5, 5, 5])
 
-    #
-    ## Write your code below
-    #
+        self.Kp = np.diag([23.04, 34.56, 4.032])
+        self.Ki = np.diag([2.76, 4.1, 0.48])
+        self.Kd = np.diag([28.7648, 43.1472, 5.048384])
 
-    return tau
+    def step(self, eta_d, eta, eta_dot, dt):
+        error = eta - eta_d
+        self.error_sum += error * dt
+        # self.error_sum = np.clip(self.error_sum, -20, 20)
+
+        p = self.Kp @ error
+        i = self.Ki @ self.error_sum
+        d = self.Kd @ eta_dot
+
+        self.last_error = error
+
+        tau = -(p + i + d)
+
+        if tau[0] > self.tau_max[0]:
+            tau[0] = self.tau_max[0]
+        elif tau[0] < -self.tau_max[0]:
+            tau[0] = -self.tau_max[0]
+        
+        if tau[1] > self.tau_max[1]:
+            tau[1] = self.tau_max[1]
+        elif tau[1] < -self.tau_max[1]:
+            tau[1] = -self.tau_max[1]
+
+        if tau[2] > self.tau_max[2]:
+            tau[2] = self.tau_max[2]
+        elif tau[2] < -self.tau_max[2]:
+            tau[2] = -self.tau_max[2]
+
+        return tau
+

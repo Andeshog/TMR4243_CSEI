@@ -24,12 +24,13 @@ import rclpy
 import rclpy.node
 import tmr4243_interfaces.msg
 import geometry_msgs.msg
+import numpy as np
 
 from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 
-from template_controller.PID_controller import PID_controller
+from template_controller.PID_controller import PID
 from template_controller.PD_FF_controller import PD_FF_controller
 from template_controller.backstepping_controller import BacksteppingController
 
@@ -45,6 +46,9 @@ class Controller(rclpy.node.Node):
 
         self.subs["reference"] = self.create_subscription(
             tmr4243_interfaces.msg.Reference, '/CSEI/control/reference', self.received_reference, 10)
+        
+        self.subs["DP_reference"] = self.create_subscription(
+            tmr4243_interfaces.msg.Reference, '/CSEI/control/DPref', self.received_dp_ref, 10)
 
         self.subs['observer'] = self.create_subscription(
             tmr4243_interfaces.msg.Observer, '/CSEI/observer/state', self.received_observer ,10)
@@ -60,6 +64,7 @@ class Controller(rclpy.node.Node):
         self.K2_gain = self.declare_parameter("K2_gain", 1)
 
         self.backstep = BacksteppingController()
+        self.pid = PID()
 
         # Flags for logging
         self.waypoints_received = False
@@ -72,6 +77,8 @@ class Controller(rclpy.node.Node):
         self.last_observer = None
         self.last_transform = None
         self.reference = None
+        self.DPref = None
+        self.eta_hat_dot = np.zeros(3)
         # timer_period = 0.1 # seconds
         # self.timer = self.create_timer(timer_period, self.timer_callback)
 
@@ -98,7 +105,25 @@ class Controller(rclpy.node.Node):
 
     def controller_callback(self):
 
-        if self.last_observer is not None and self.reference is not None:
+        if self.last_observer is not None and self.DPref is not None:
+
+            eta_hat = np.array(self.last_observer.eta)
+
+            nu_hat = np.array(self.last_observer.nu)
+
+            eta_d = np.array(self.DPref.eta_d)
+
+            tau = self.pid.step(eta_d, eta_hat, nu_hat, 0.1)
+
+            f = geometry_msgs.msg.Wrench()
+            f.force.x = tau[0]
+            f.force.y = tau[1]
+            f.torque.z = tau[2]
+            self.pubs["tau_cmd"].publish(f)
+
+            self.last_observer = None
+
+        elif self.last_observer is not None and self.reference is not None:
             #self.get_logger().info("Going into controller callback")
 
             P_gain = self.get_parameter("P_gain").value
@@ -140,8 +165,18 @@ class Controller(rclpy.node.Node):
     def received_reference(self, msg):
         self.reference = msg
 
+    def received_dp_ref(self, msg):
+        self.DPref = msg
+
     def received_observer(self, msg):
         self.last_observer = msg
+
+    @staticmethod
+    def rotationMatrix(psi):
+        R = np.array([[np.cos(psi), -np.sin(psi), 0],
+                [np.sin(psi), np.cos(psi), 0],
+                [0, 0, 1]])
+        return R
 
 
 def main(args=None):

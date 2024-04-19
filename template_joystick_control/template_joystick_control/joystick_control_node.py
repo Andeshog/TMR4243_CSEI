@@ -36,7 +36,7 @@ from tf2_ros.transform_listener import TransformListener
 import template_joystick_control.joystick_mapping
 from template_joystick_control.joystick_simple import joystick_simple
 from template_joystick_control.joystick_force_basin_relative import joystick_force_basin_relative
-from template_joystick_control.joystick_force_body_relative import joystick_force_body_relative
+from template_joystick_control.joystick_force_body_relative import joystick_force_body_relative, joystick_force_body_relative_two_thrusters
 
 
 class JoystickForce(rclpy.node.Node):
@@ -58,8 +58,12 @@ class JoystickForce(rclpy.node.Node):
         self.current_task = self.declare_parameter('task', 'simple')
         self.current_task.value
 
+        self.current_task = self.get_parameter('task')
+
         self.last_transform = None
         self.timer = self.create_timer(0.1, self.timer_callback)
+
+        self.get_logger().info(f'Joystick control with task {self.current_task.value} initialized.')
 
     def timer_callback(self):
 
@@ -72,11 +76,6 @@ class JoystickForce(rclpy.node.Node):
             self.get_logger().info(
                 f'Could not transform : {ex}')
 
-        self.current_task = self.get_parameter('task')
-
-        self.get_logger().info(
-            f"Parameter task: {self.current_task.value}", throttle_duration_sec=1.0)
-
     def joy_callback(self, msg):
 
         result = []
@@ -87,6 +86,7 @@ class JoystickForce(rclpy.node.Node):
             result = joystick_force_basin_relative(msg, self.last_transform)
         elif "body" in self.current_task.value:
             result = joystick_force_body_relative(msg)
+            #result = joystick_force_body_relative_two_thrusters(msg)
 
         if len(result) != 5:
             self.get_logger().warn(

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sensor_msgs.msg
+import geometry_msgs.msg
 import numpy as np
 
 def joystick_force_basin_relative(joystick: sensor_msgs.msg, position: geometry_msgs.msg.TransformStamped):

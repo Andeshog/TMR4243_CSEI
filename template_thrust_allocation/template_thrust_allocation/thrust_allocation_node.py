@@ -26,7 +26,7 @@ import std_msgs.msg
 import geometry_msgs.msg
 import numpy as np
 
-from template_thrust_allocation.thruster_allocation import thruster_allocation
+from template_thrust_allocation.thruster_allocation import thruster_allocation, thrust_allocation_two_thrusters
 
 class ThrustAllocation(rclpy.node.Node):
     def __init__(self):
@@ -49,7 +49,8 @@ class ThrustAllocation(rclpy.node.Node):
 
         if self.last_received_forces is not None:
             tau = np.array([self.last_received_forces.force.x, self.last_received_forces.force.y, self.last_received_forces.torque.z])
-            u = thruster_allocation(tau)
+            #u = thruster_allocation(tau)
+            u = thrust_allocation_two_thrusters(tau)
 
             u_cmd_msg = std_msgs.msg.Float32MultiArray()
             u_cmd_msg.data = u
