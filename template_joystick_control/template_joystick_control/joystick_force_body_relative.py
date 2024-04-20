@@ -77,7 +77,7 @@ def joystick_force_body_relative_two_thrusters(joystick: sensor_msgs.msg) -> lis
     Q_W = np.eye(4) - B_ps @ B
 
     # Compute the control input
-    f_star = f #+ Q_W @ fd
+    f_star = f + Q_W @ fd
 
     #u_e = Ke_inv @ B_ps @ tau
 

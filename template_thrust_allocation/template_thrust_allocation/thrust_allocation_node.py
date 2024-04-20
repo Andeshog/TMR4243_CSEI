@@ -25,6 +25,7 @@ import rclpy.node
 import std_msgs.msg
 import geometry_msgs.msg
 import numpy as np
+import time
 
 from template_thrust_allocation.thruster_allocation import thruster_allocation, thrust_allocation_two_thrusters
 
@@ -45,16 +46,21 @@ class ThrustAllocation(rclpy.node.Node):
 
         self.timer = self.create_timer(0.1, self.timer_callback)
 
+        self.counter = 0
+
+        self.something = False
+
     def timer_callback(self):
 
         if self.last_received_forces is not None:
             tau = np.array([self.last_received_forces.force.x, self.last_received_forces.force.y, self.last_received_forces.torque.z])
-            #u = thruster_allocation(tau)
-            u = thrust_allocation_two_thrusters(tau)
+            u = thruster_allocation(tau)
+            #u = thrust_allocation_two_thrusters(tau)
 
             u_cmd_msg = std_msgs.msg.Float32MultiArray()
             u_cmd_msg.data = u
             self.pubs["u_cmd"].publish(u_cmd_msg)
+
             #self.get_logger().info(f"Published u_cmd: {u}")
 
             #self.last_recived_forces = None

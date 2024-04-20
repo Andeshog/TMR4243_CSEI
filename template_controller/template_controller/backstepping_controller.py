@@ -5,7 +5,7 @@ from tmr4243_interfaces.msg import Reference, Observer
 
 class BacksteppingController:
     def __init__(self):
-        self.K_1 = np.diag([6, 5, 2])
+        self.K_1 = np.diag([4, 3, 2])
         self.K_2 = np.diag([8, 6, 3])
         self.M = np.array([
                     [16, 0, 0],

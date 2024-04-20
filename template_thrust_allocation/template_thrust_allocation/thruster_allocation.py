@@ -12,7 +12,7 @@ def thruster_allocation(tau: np.ndarray) -> list[float]:
                   [1, 0, 1, 0, 1],
                   [0.3875, 0.055, -0.4574, -0.055, -0.4574]])
     
-   W = np.diag([1, 1, 2, 1, 1])
+   W = np.diag([1, 1, 1, 1, 1])
    W_inv = np.linalg.inv(W)
    Ke = np.diag([2.629, 2.629, 1.030, 1.030, 1.030])
    Ke_inv = np.linalg.inv(Ke)
@@ -22,7 +22,7 @@ def thruster_allocation(tau: np.ndarray) -> list[float]:
    #B_ps = np.pinv(B)
 
    f = B_ps @ tau
-   fd = np.array([1, 0, -1, 0, 1])
+   fd = np.array([1, 1, 1, 1, 1])
 
    Q_W = np.eye(5) - B_ps @ B
 

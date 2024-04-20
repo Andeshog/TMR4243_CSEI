@@ -50,7 +50,6 @@ pid.Kp = Kp
 pid.Kd = Kd
 pid.Ki = Ki
 
-print(Ki)
 # Simulation
 
 for i in range(1,len(time)):

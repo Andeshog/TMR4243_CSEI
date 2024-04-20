@@ -11,7 +11,7 @@ class ReferenceFilter:
     def init_system(self):
 
         zeta = 0.8
-        omega_b = 0.1
+        omega_b = 0.05
         omega_n = omega_b/np.sqrt(1-2*zeta**2 + np.sqrt(4*zeta**4 - 4*zeta**2 + 2))
 
         I = np.eye(3)

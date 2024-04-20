@@ -85,6 +85,9 @@ class Guidance(rclpy.node.Node):
         self.reference_filter = ReferenceFilter()
         self.xd = np.zeros(9)
 
+        self.init_pos = False
+        
+
     def eta_callback(self, msg):
         self.eta = list(msg.data)
         self.has_eta = True
@@ -113,7 +116,7 @@ class Guidance(rclpy.node.Node):
 
         if self.last_waypoint_reached and self.has_eta:
             last_waypoint = self.waypoints[-1]
-            eta_ref = np.array([last_waypoint.x, last_waypoint.y, 0])
+            eta_ref = np.array([last_waypoint.x, last_waypoint.y, np.pi])
             x_next = self.reference_filter.step(eta_ref, self.xd)
             self.xd = x_next
             ref_msg = Reference()
@@ -124,8 +127,11 @@ class Guidance(rclpy.node.Node):
         elif "stationkeeping" in self.current_guidance.value:
             # self.get_logger().info('Stationkeeping')
             if self.waypoints_received and self.has_eta:
+                if not self.init_pos:
+                    self.xd[0:3] = self.eta
+                    self.init_pos = True
                 last_waypoint = self.waypoints[-1]
-                eta_ref = np.array([last_waypoint.x, last_waypoint.y, 0])
+                eta_ref = np.array([last_waypoint.x, last_waypoint.y, np.pi])
                 x_next = self.reference_filter.step(eta_ref, self.xd)
                 self.xd = x_next
                 ref_msg = Reference()
@@ -165,9 +171,9 @@ class Guidance(rclpy.node.Node):
                 pos_der = signals.get_derivatives()[0]
                 pos_dder = signals.get_derivatives()[1]
 
-                psi = 0#signals.get_heading()
-                psi_der = 0#3signals.get_heading_derivative()
-                psi_dder = 0#signals.get_heading_second_derivative()
+                psi = 0*signals.get_heading()
+                psi_der = 0*signals.get_heading_derivative()
+                psi_dder = 0*signals.get_heading_second_derivative()
 
                 n.eta_d = np.array([pos[0], pos[1], psi], dtype=float).tolist()
                 n.eta_ds = np.array([pos_der[0], pos_der[1], psi_der], dtype=float).tolist()

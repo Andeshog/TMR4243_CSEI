@@ -6,7 +6,7 @@ class PID:
     def __init__(self):
         self.error_sum = np.zeros(3)
 
-        self.tau_max = np.array([5, 5, 5])
+        self.tau_max = np.array([100, 100, 100])
 
         self.Kp = np.diag([23.04, 34.56, 4.032])
         self.Ki = np.diag([2.76, 4.1, 0.48])
@@ -15,10 +15,10 @@ class PID:
     def step(self, eta_d, eta, eta_dot, dt):
         error = eta - eta_d
         self.error_sum += error * dt
-        # self.error_sum = np.clip(self.error_sum, -20, 20)
+        self.error_sum = np.clip(self.error_sum, -20, 20)
 
         p = self.Kp @ error
-        i = self.Ki @ self.error_sum
+        i = 0# self.Ki @ self.error_sum
         d = self.Kd @ eta_dot
 
         self.last_error = error
