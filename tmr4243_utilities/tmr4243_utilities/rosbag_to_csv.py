@@ -113,8 +113,8 @@ def getAllMsgsTypes(cursor, print_out=False):
     return msgsTypes
 
 if __name__ == "__main__":
-        csv_directory = "/home/andeshog/sim_ws/csv_files/Observer" #sys.argv[1]
-        bag_file = "/home/andeshog/sim_ws/bags/ObserverRecordings/ObserverRecording1/Recording1.db3" #sys.argv[2]
+        csv_directory = "/home/andeshog/sim_ws/csv_files/Sim/Observer/" #sys.argv[1]
+        bag_file = "/home/andeshog/sim_ws/bags/ObserverRecordings/Sim/DeadReckoningStraightLine/DRStraightLine.db3" #sys.argv[2]
         print(f"Converting {bag_file} to CSV files in {csv_directory}")
 
         csv_directory = csv_directory + os.path.basename(bag_file).split('.')[0]
@@ -171,65 +171,63 @@ if __name__ == "__main__":
                     csv_writer.writerow(["Timestamp","u_cmd.1", "u_cmd.2", "u_cmd.3", "u_cmd.4","u_cmd.5"])
                     for timestamp, message in zip(t, msgs):
                             deserialized_msg = deserialize_message(message, msg_type)
-                            seconds = timestamp // 10**9
-                            nanoseconds = timestamp % 10**9
-                            timestamp = f"{seconds}.{nanoseconds}"
+                            timestamp = timestamp / 10**9
                             csv_writer.writerow([timestamp, deserialized_msg.data[0], deserialized_msg.data[1], deserialized_msg.data[2], deserialized_msg.data[3], deserialized_msg.data[4]])
                 elif topic_name == "/CSEI/state/tau":
                     csv_writer.writerow(["Timestamp","tau.1", "tau.2", "tau.3"])
                     for timestamp, message in zip(t, msgs):
                             deserialized_msg = deserialize_message(message, msg_type)
-                            seconds = timestamp // 10**9
-                            nanoseconds = timestamp % 10**9
-                            timestamp = f"{seconds}.{nanoseconds}"
+                            timestamp = timestamp / 10**9
                             csv_writer.writerow([timestamp, deserialized_msg.data[0], deserialized_msg.data[1], deserialized_msg.data[2]])
                 elif topic_name == "/CSEI/state/eta":
                     csv_writer.writerow(["Timestamp","eta.1", "eta.2", "eta.3"])
                     for timestamp, message in zip(t, msgs):
                             deserialized_msg = deserialize_message(message, msg_type)
-                            seconds = timestamp // 10**9
-                            nanoseconds = timestamp % 10**9
-                            timestamp = f"{seconds}.{nanoseconds}"
+                            timestamp = timestamp / 10**9
                             csv_writer.writerow([timestamp, deserialized_msg.data[0], deserialized_msg.data[1], deserialized_msg.data[2]])
                 elif topic_name == "/CSEI/state/psi":
                     csv_writer.writerow(["Timestamp","psi"])
                     for timestamp, message in zip(t, msgs):
                             deserialized_msg = deserialize_message(message, msg_type)
-                            seconds = timestamp // 10**9
-                            nanoseconds = timestamp % 10**9
-                            timestamp = f"{seconds}.{nanoseconds}"
+                            timestamp = timestamp / 10**9
                             csv_writer.writerow([timestamp, deserialized_msg.data])
                 elif topic_name == "/CSEI/thrusters/tunnel/command":
                     csv_writer.writerow(["Timestamp","force.x", "force.y", "force.z", "torque.x", "torque.y", "torque.z"])
                     for timestamp, message in zip(t, msgs):
                             deserialized_msg = deserialize_message(message, msg_type)
-                            seconds = timestamp // 10**9
-                            nanoseconds = timestamp % 10**9
-                            timestamp = f"{seconds}.{nanoseconds}"
+                            timestamp = timestamp / 10**9
                             csv_writer.writerow([timestamp, deserialized_msg.force.x, deserialized_msg.force.y, deserialized_msg.force.z, deserialized_msg.torque.x, deserialized_msg.torque.y, deserialized_msg.torque.z])
                 elif topic_name == "/CSEI/thrusters/starboard/command":
                     csv_writer.writerow(["Timestamp","force.x", "force.y", "force.z", "torque.x", "torque.y", "torque.z"])
                     for timestamp, message in zip(t, msgs):
                             deserialized_msg = deserialize_message(message, msg_type)
-                            seconds = timestamp // 10**9
-                            nanoseconds = timestamp % 10**9
-                            timestamp = f"{seconds}.{nanoseconds}"
+                            timestamp = timestamp / 10**9
                             csv_writer.writerow([timestamp, deserialized_msg.force.x, deserialized_msg.force.y, deserialized_msg.force.z, deserialized_msg.torque.x, deserialized_msg.torque.y, deserialized_msg.torque.z])
                 elif topic_name == "/CSEI/thrusters/port/command":
                     csv_writer.writerow(["Timestamp","force.x", "force.y", "force.z", "torque.x", "torque.y", "torque.z"])
                     for timestamp, message in zip(t, msgs):
                             deserialized_msg = deserialize_message(message, msg_type)
-                            seconds = timestamp // 10**9
-                            nanoseconds = timestamp % 10**9
-                            timestamp = f"{seconds}.{nanoseconds}"
+                            timestamp = timestamp / 10**9
                             csv_writer.writerow([timestamp, deserialized_msg.force.x, deserialized_msg.force.y, deserialized_msg.force.z, deserialized_msg.torque.x, deserialized_msg.torque.y, deserialized_msg.torque.z])
+                elif topic_name == "/CSEI/control/DPref":
+                    csv_writer.writerow(["Timestamp", "eta_d.x", "eta_d.y", "eta_d.z", "eta_ds.x", "eta_ds.y", "eta_ds.z", "w", "v_s", "v_ss"])
+                    for timestamp, message in zip(t, msgs):
+                        deserialized_msg = deserialize_message(message, msg_type)
+                        dm = deserialized_msg
+                        timestamp = timestamp / 10**9  # Convert timestamp to seconds
+                        csv_writer.writerow([timestamp, dm.eta_d[0], dm.eta_d[1], dm.eta_d[2], dm.eta_ds[0], dm.eta_ds[1], dm.eta_ds[2], dm.w, dm.v_s, dm.v_ss])
+                elif topic_name == "/CSEI/control/reference":
+                    csv_writer.writerow(["Timestamp", "eta_d.x", "eta_d.y", "eta_d.z", "eta_ds.x", "eta_ds.y", "eta_ds.z", "eta_ds2.x", "eta_ds2.y", "eta_ds2.z", "w", "v_s", "v_ss"])
+                    for timestamp, message in zip(t, msgs):
+                        deserialized_msg = deserialize_message(message, msg_type)
+                        dm = deserialized_msg
+                        timestamp = timestamp / 10**9
+                        csv_writer.writerow([timestamp, dm.eta_d[0], dm.eta_d[1], dm.eta_d[2], dm.eta_ds[0], dm.eta_ds[1], dm.eta_ds[2], dm.eta_ds2[0], dm.eta_ds2[1], dm.eta_ds2[2], dm.w, dm.v_s, dm.v_ss])
                 else:
                     csv_writer.writerow(["Timestamp","data"])
                     for timestamp, message in zip(t, msgs):
                             deserialized_msg = deserialize_message(message, msg_type)
-                            seconds = timestamp // 10**9
-                            nanoseconds = timestamp % 10**9
-                            timestamp = f"{seconds}.{nanoseconds}"
+                            timestamp = timestamp / 10**9
                             csv_writer.writerow([timestamp, deserialized_msg])
 
         ### close connection to the database

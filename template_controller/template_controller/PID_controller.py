@@ -18,7 +18,7 @@ class PID:
         self.error_sum = np.clip(self.error_sum, -20, 20)
 
         p = self.Kp @ error
-        i = 0# self.Ki @ self.error_sum
+        i = 0#self.Ki @ self.error_sum
         d = self.Kd @ eta_dot
 
         self.last_error = error

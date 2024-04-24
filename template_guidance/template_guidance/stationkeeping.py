@@ -58,7 +58,7 @@ class ReferenceFilter:
 
 if __name__ == "__main__":
     refFilter = ReferenceFilter()
-    ref_pos = np.array([5, 5, 0])
+    ref_pos = np.array([5, 10, 0])
     t = np.arange(0, 100, 0.1)
     N = len(t)
     x_d = np.zeros((N, 9))

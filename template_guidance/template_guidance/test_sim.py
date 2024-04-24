@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 pid = PID()
 refFilter = ReferenceFilter()
 
-eta_ref = np.array([5, 5, 0])
+eta_ref = np.array([5, 0, 0])
 
 T = 100
 dt = 0.1
@@ -18,9 +18,9 @@ current = np.ones((len(time), 3))
 
 tau = np.zeros((len(time), 3))
 eta = np.zeros((len(time), 3))
-eta[0] = np.array([3, 3, 0])
+#eta[0] = np.array([3, 3, 0])
 x_d[0,0:3] = eta[0]
-x_d[0,3:6] = np.array([0.1, 0.1, 0])
+#x_d[0,3:6] = np.array([0.1, 0.1, 0])
 eta_dot = np.zeros(3)
 nu = np.zeros((len(time), 3))
 nu[0] = np.array([0.25, 0.25, 0])
@@ -74,6 +74,13 @@ plt.plot(time, eta[:,1], label='East')
 plt.plot(time, x_d[:,1], label='East ref')
 plt.legend()
 plt.grid()
+
+plt.figure()
+plt.plot(eta[:,1], eta[:,0], label='eta')
+plt.plot(x_d[:,1], x_d[:,0], label='eta ref')
+plt.legend()
+plt.grid()
+plt.axis('equal')
 
 plt.figure()
 plt.plot(time, eta[:,2], label='Psi')

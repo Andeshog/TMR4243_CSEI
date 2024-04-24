@@ -76,7 +76,7 @@ class Guidance(rclpy.node.Node):
         
         self.r = 1
         self.lambda_val = 0.2
-        self.mu = 0.03
+        self.mu = 0.02
 
         self.has_eta = False
 
@@ -116,7 +116,7 @@ class Guidance(rclpy.node.Node):
 
         if self.last_waypoint_reached and self.has_eta:
             last_waypoint = self.waypoints[-1]
-            eta_ref = np.array([last_waypoint.x, last_waypoint.y, np.pi])
+            eta_ref = np.array([last_waypoint.x, last_waypoint.y, 0])
             x_next = self.reference_filter.step(eta_ref, self.xd)
             self.xd = x_next
             ref_msg = Reference()
@@ -131,7 +131,7 @@ class Guidance(rclpy.node.Node):
                     self.xd[0:3] = self.eta
                     self.init_pos = True
                 last_waypoint = self.waypoints[-1]
-                eta_ref = np.array([last_waypoint.x, last_waypoint.y, np.pi])
+                eta_ref = np.array([last_waypoint.x, last_waypoint.y, 0])
                 x_next = self.reference_filter.step(eta_ref, self.xd)
                 self.xd = x_next
                 ref_msg = Reference()
@@ -163,6 +163,8 @@ class Guidance(rclpy.node.Node):
             if self.waypoints_received and self.has_eta and not self.last_waypoint_reached:
                 dt = 0.1
                 self.s = self.generator.update_s(self.path, dt, self.u_desired, self.s, self.w)
+                if self.s >= self.path.NumSubpaths - 0.4:
+                    self.u_desired = 0.1
                 signals = HybridPathSignals(self.path, self.s)
                 self.w = signals.get_w(self.mu, self.eta)
 
@@ -171,9 +173,9 @@ class Guidance(rclpy.node.Node):
                 pos_der = signals.get_derivatives()[0]
                 pos_dder = signals.get_derivatives()[1]
 
-                psi = 0*signals.get_heading()
-                psi_der = 0*signals.get_heading_derivative()
-                psi_dder = 0*signals.get_heading_second_derivative()
+                psi = 0#signals.get_heading()
+                psi_der = 0#signals.get_heading_derivative()
+                psi_dder = 0#signals.get_heading_second_derivative()
 
                 n.eta_d = np.array([pos[0], pos[1], psi], dtype=float).tolist()
                 n.eta_ds = np.array([pos_der[0], pos_der[1], psi_der], dtype=float).tolist()
@@ -184,13 +186,13 @@ class Guidance(rclpy.node.Node):
                 n.v_ss = signals.get_vs_derivative(self.u_desired)
                 self.pubs["reference"].publish(n)
 
-                if self.s >= self.path.NumSubpaths-0.6 and self.last_waypoint_reached == False:
+                if self.s >= self.path.NumSubpaths - 0.05 and self.last_waypoint_reached == False:
                     # self.waypoints_received = False
                     self.waiting_message_printed = False
                     self.get_logger().info('Closing in on the last waypoint, switching to DP')
                     self.last_waypoint_reached = True
                     self.xd[0:3] = n.eta_d
-                    self.xd[3:6] = np.array([0.15, 0.15, 0])
+                    #self.xd[3:6] = np.array([0, 0, 0])
 
             else:
                 if not self.waiting_message_printed:

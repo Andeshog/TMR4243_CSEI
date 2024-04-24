@@ -32,7 +32,10 @@ class WaypointClient(Node):
     def send_request(self):
         if self.eta_received:
             req = Waypoint.Request()
-            wp_list = [[self.eta[0], self.eta[1]], [self.eta[0] - 3., self.eta[1]]]
+            #wp_list = [[self.eta[0], self.eta[1]], [self.eta[0] - 3., self.eta[1]]]
+            #wp_list = [[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0], [0.0, 0.0]]
+            # wp_list = [[0.0, 0.0], [5.0, 5.0]] 
+            wp_list = [[0.0, 0.0], [2.0, 1.0], [4.0, -1.0], [6.0, 1.0], [8.0, -1.0]]
             req.waypoint = [Point(x=wp[0], y=wp[1], z=0.0) for wp in wp_list]
             self.get_logger().info(f'Sending request: {req}')
             self.future = self.client.call_async(req)
