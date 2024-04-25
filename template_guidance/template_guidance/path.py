@@ -66,7 +66,7 @@ class HybridPathGenerator:
         path (Path): The path object.
     """
     def __init__(self, WP: list[Point], r: int, lambda_val: float):
-        WP_arr = np.array([[int(wp.x), int(wp.y)] for wp in WP])
+        WP_arr = np.array([[wp.x, wp.y] for wp in WP])
         if len(WP_arr) == 2:
             self.WP = np.array([WP_arr[0], [(WP_arr[0][0] + WP_arr[1][0])/2, (WP_arr[0][1] + WP_arr[1][1])/2], WP_arr[1]])
         else:
